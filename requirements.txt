@@ -5,4 +5,4 @@ opencv-python-headless
 torch
 transformers
 google-generativeai
-tensorflow
+nest_asyncio
