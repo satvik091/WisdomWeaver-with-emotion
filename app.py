@@ -1,24 +1,27 @@
-import streamlit as st
-import pandas as pd
 import os
+import sys
 import json
 import asyncio
-from PIL import Image
+import streamlit as st
+import pandas as pd
 from typing import Dict
+from PIL import Image
 import cv2
-import google.generativeai as genai
 import torch
 from transformers import pipeline
-import cv2
-from PIL import Image
+import nest_asyncio
 
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TF logs
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Optional: Disable oneDNN optimizations (noise reduction)
+# --- Environment Cleanup ---
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+sys.modules["torch.classes"] = None
+nest_asyncio.apply()
 
 # -------------------------
 # GitaGeminiBot Definition
 # -------------------------
+
+import google.generativeai as genai
 
 class GitaGeminiBot:
     def __init__(self, api_key: str):
@@ -95,12 +98,11 @@ class GitaGeminiBot:
     async def get_response(self, emotion: str, question: str) -> Dict:
         try:
             prompt = f"""
-            You are a spiritual guide rooted in the teachings of the Bhagavad Gita.
+You are a spiritual guide rooted in the teachings of the Bhagavad Gita.
 
 Input:
 
 User Emotion: {emotion}
-
 User Question: {question}
 
 Instructions:
@@ -113,7 +115,7 @@ Sanskrit: [Only real Sanskrit verse from Bhagavad Gita]
 Translation: [Faithful English translation]
 Explanation: [Traditional, concise explanation of the verse]
 Application: [Speak to the user’s emotional state using soft, friendly, and simple words. Help them connect the verse to their inner life—what they’re feeling or struggling with. Use clear, everyday language to offer comfort and direction. Do not use abstract or vague ideas.]
-            """
+"""
             response = self.model.generate_content(prompt)
             return self.format_response(response.text or "")
         except Exception as e:
@@ -124,7 +126,6 @@ Application: [Speak to the user’s emotional state using soft, friendly, and si
                 "application": ""
             }
 
-
 # -------------------------
 # Initialize State
 # -------------------------
@@ -133,7 +134,7 @@ def initialize_session_state():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     if 'bot' not in st.session_state:
-        st.session_state.bot = GitaGeminiBot("AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
+        st.session_state.bot = GitaGeminiBot("YOUR_GEMINI_API_KEY")
 
 # -------------------------
 # Emotion Detection
@@ -150,21 +151,17 @@ def detect_emotion_from_camera():
         if not ret:
             return "neutral"
 
-        # Convert BGR to RGB
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(rgb_frame)
 
-        # Use pipeline to classify emotion
         results = pipe(pil_image)
 
-        # Get top predicted emotion
         if results and isinstance(results, list):
             return results[0]["label"]
 
         return "neutral"
-    except Exception as e:
+    except Exception:
         return "neutral"
-
 
 # -------------------------
 # Main App
@@ -177,14 +174,13 @@ def main():
         layout="wide"
     )
 
-    image_path = "WhatsApp Image 2024-11-18 at 11.40.34_076eab8e.jpg"  
-    if os.path.exists(image_path):  # Check if file exists locally
+    image_path = "WhatsApp Image 2024-11-18 at 11.40.34_076eab8e.jpg"
+    if os.path.exists(image_path):
         image = Image.open(image_path)
         max_width = 800
         aspect_ratio = image.height / image.width
         resized_image = image.resize((max_width, int(max_width * aspect_ratio)))
         st.image(resized_image, caption="Bhagavad Gita - Eternal Wisdom")
-
     else:
         st.error("Image file not found. Please upload the image.")
 
