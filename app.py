@@ -5,14 +5,16 @@ import json
 import asyncio
 from PIL import Image
 from typing import Dict
-from fer import FER
 import cv2
 import google.generativeai as genai
-# from transformers import AutoProcessor, AutoModelForImageClassification
 import torch
 from transformers import pipeline
 import cv2
 from PIL import Image
+
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TF logs
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Optional: Disable oneDNN optimizations (noise reduction)
 
 # -------------------------
 # GitaGeminiBot Definition
