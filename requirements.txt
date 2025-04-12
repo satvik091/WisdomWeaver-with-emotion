@@ -1,0 +1,8 @@
+streamlit
+pandas
+Pillow
+opencv-python-headless
+torch
+transformers
+google-generativeai
+fer
