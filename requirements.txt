@@ -6,4 +6,3 @@ torch
 transformers
 google-generativeai
 fer
-tensorflow
