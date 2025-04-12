@@ -5,5 +5,4 @@ opencv-python-headless
 torch
 transformers
 google-generativeai
-fer
 tensorflow
