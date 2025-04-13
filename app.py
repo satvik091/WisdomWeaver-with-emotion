@@ -2,20 +2,17 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-import asyncio
 from PIL import Image
 from typing import Dict
 import google.generativeai as genai
 from transformers import pipeline
 
-# -------------------------
-# GitaGeminiBot Definition
-# -------------------------
+# ------------------------- GitaGeminiBot -------------------------
 
 class GitaGeminiBot:
     def __init__(self, api_key: str):
-        genai.configure(api_key="AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel('gemini-1.5-flash')  # More capable
         self.verses_db = self.load_gita_database()
 
     def load_gita_database(self) -> Dict:
@@ -36,28 +33,18 @@ class GitaGeminiBot:
         return verses_db
 
     def format_response(self, raw_text: str) -> Dict:
+        response = {
+            "verse_reference": "",
+            "sanskrit": "",
+            "translation": "",
+            "explanation": "",
+            "application": ""
+        }
+
         try:
-            try:
-                return json.loads(raw_text)
-            except json.JSONDecodeError:
-                pass
-
-            if '{' in raw_text and '}' in raw_text:
-                json_str = raw_text[raw_text.find('{'):raw_text.rfind('}') + 1]
-                return json.loads(json_str)
-
-            response = {
-                "verse_reference": "",
-                "sanskrit": "",
-                "translation": "",
-                "explanation": "",
-                "application": ""
-            }
-
-            lines = raw_text.split('\n')
+            lines = raw_text.strip().split('\n')
             current = None
             for line in lines:
-                line = line.strip()
                 if "Chapter" in line and "Verse" in line:
                     response["verse_reference"] = line
                 elif line.startswith("Sanskrit:"):
@@ -66,116 +53,92 @@ class GitaGeminiBot:
                     response["translation"] = line.replace("Translation:", "").strip()
                 elif line.startswith("Explanation:"):
                     current = "explanation"
-                    response["explanation"] = line.replace("Explanation:", "").strip()
+                    response[current] = line.replace("Explanation:", "").strip()
                 elif line.startswith("Application:"):
                     current = "application"
-                    response["application"] = line.replace("Application:", "").strip()
+                    response[current] = line.replace("Application:", "").strip()
                 elif current:
-                    response[current] += " " + line
-
-            return response
-
+                    response[current] += " " + line.strip()
         except Exception as e:
-            return {
-                "verse_reference": "Error",
-                "sanskrit": "",
-                "translation": str(e),
-                "explanation": "Please try again.",
-                "application": ""
-            }
+            response["verse_reference"] = "Error"
+            response["translation"] = f"Error: {e}"
+            response["explanation"] = "Please try again."
+        return response
 
-    async def get_response(self, emotion: str, question: str) -> Dict:
-        try:
-            prompt = f"""
-You are a spiritual guide rooted in the teachings of the Bhagavad Gita.
+    def get_response(self, emotion: str, question: str) -> Dict:
+        prompt = f"""
+You are a spiritual teacher of the Bhagavad Gita.
 
-Input:
-User Emotion: {emotion}
-User Question: {question}
+User Emotion: **{emotion}**
+User Question: **{question}**
 
-Instructions:
-Respond with authentic wisdom from the Bhagavad Gita. Do not generate or fabricate verses. Only use real verses from the Bhagavad Gita, including their correct chapter and verse number, original Sanskrit, and accurate English translation. If no relevant verse is available, respond gently and say that.
+Give a response rooted in the Bhagavad Gita. Follow this exact structure:
+- Chapter X, Verse Y
+- Sanskrit: ...
+- Translation: ...
+- Explanation: ...
+- Application: (Simple words. Help the user connect the Gita's message to their feelings.)
 
-Respond in the following format:
-Chapter X, Verse Y
-Sanskrit: [Only real Sanskrit verse from Bhagavad Gita]
-Translation: [Faithful English translation]
-Explanation: [Traditional, concise explanation of the verse]
-Application: [Speak to the user’s emotional state using soft, friendly, and simple words. Help them connect the verse to their inner life—what they’re feeling or struggling with. Use clear, everyday language to offer comfort and direction. Do not use abstract or vague ideas.]
+⚠️ Only use real Bhagavad Gita verses with accurate chapter/verse numbers. Do not generate fake ones.
 """
+        try:
             response = self.model.generate_content(prompt)
             return self.format_response(response.text or "")
         except Exception as e:
             return {
                 "verse_reference": "Error",
-                "translation": f"Error: {e}",
+                "translation": f"Gemini Error: {e}",
                 "explanation": "Please try again.",
                 "application": ""
             }
 
-# -------------------------
-# Initialize State
-# -------------------------
+# ------------------------- Emotion Detection -------------------------
 
-def initialize_session_state():
+pipe = pipeline("image-classification", model="prithivMLmods/Facial-Emotion-Detection-SigLIP2")
+
+def detect_emotion_from_image(image: Image.Image) -> str:
+    try:
+        results = pipe(image)
+        return results[0]["label"] if results else "neutral"
+    except:
+        return "neutral"
+
+# ------------------------- Streamlit App -------------------------
+
+def initialize_state():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     if 'bot' not in st.session_state:
         st.session_state.bot = GitaGeminiBot(api_key=st.secrets["GEMINI_API_KEY"])
 
-# -------------------------
-# Emotion Detection via st.camera_input
-# -------------------------
-
-pipe = pipeline("image-classification", model="prithivMLmods/Facial-Emotion-Detection-SigLIP2")
-
-def detect_emotion_from_streamlit_camera():
-    img_file = st.camera_input("📸 Capture your emotion")
-    if img_file is not None:
-        pil_image = Image.open(img_file)
-        results = pipe(pil_image)
-        if results and isinstance(results, list):
-            return results[0]["label"]
-    return "neutral"
-
-# -------------------------
-# Main App
-# -------------------------
-
 def main():
-    st.set_page_config(
-        page_title="Bhagavad Gita Wisdom Weaver",
-        page_icon="🕉️",
-        layout="wide"
-    )
-
-    st.title("🕉️ Gita Wisdom with Emotion")
-    st.markdown("We sense your emotion and guide you through the Gita's wisdom.")
-
-    image_path = "WhatsApp Image 2024-11-18 at 11.40.34_076eab8e.jpg"
-    if os.path.exists(image_path):
-        image = Image.open(image_path)
-        max_width = 800
-        aspect_ratio = image.height / image.width
-        resized_image = image.resize((max_width, int(max_width * aspect_ratio)))
-        st.image(resized_image, caption="Bhagavad Gita - Eternal Wisdom")
-    else:
-        st.error("Image file not found. Please upload the image.")
-
-    initialize_session_state()
+    st.set_page_config(page_title="Gita Wisdom Weaver", page_icon="🕉️", layout="wide")
+    initialize_state()
 
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        question = st.text_input("Ask your question:")
-        if question:
-            emotion = detect_emotion_from_streamlit_camera()
-            if emotion != "neutral":
-                with st.spinner(f"Reflecting based on your {emotion} emotion..."):
-                    response = asyncio.run(st.session_state.bot.get_response(emotion, question))
+        st.title("🕉️ Gita Wisdom Based on Your Emotion")
+        st.markdown("Upload your photo to sense emotion, ask your question, and receive divine guidance.")
+
+        question = st.text_input("Ask your question")
+        uploaded_image = st.file_uploader("Upload your face image (JPG/PNG)", type=["jpg", "png"])
+
+        if st.button("✨ Ask with Emotion"):
+            if not uploaded_image:
+                st.warning("Please upload a photo to detect your emotion.")
+            elif not question:
+                st.warning("Please enter a question.")
+            else:
+                image = Image.open(uploaded_image)
+                with st.spinner("Detecting emotion..."):
+                    emotion = detect_emotion_from_image(image)
+
+                with st.spinner(f"Reflecting with your emotion: {emotion}..."):
+                    response = st.session_state.bot.get_response(emotion, question)
                     st.session_state.messages.append({"role": "user", "content": f"{question} (Feeling: {emotion})"})
                     st.session_state.messages.append({"role": "assistant", **response})
-                    st.rerun()
+                    st.experimental_rerun()
 
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
@@ -183,17 +146,13 @@ def main():
                     st.markdown(message["content"])
                 else:
                     st.markdown(f"**{message['verse_reference']}**")
-                    if message.get("sanskrit"):
-                        st.markdown(f"*{message['sanskrit']}*")
-                    if message.get("translation"):
-                        st.markdown(message["translation"])
-                    if message.get("explanation"):
-                        st.markdown("**Understanding:** " + message["explanation"])
-                    if message.get("application"):
-                        st.markdown("**Modern Application:** " + message["application"])
+                    st.markdown(f"*{message['sanskrit']}*")
+                    st.markdown(f"**Translation:** {message['translation']}")
+                    st.markdown(f"**Explanation:** {message['explanation']}")
+                    st.markdown(f"**Application:** {message['application']}")
 
     with col2:
-        st.sidebar.title("📜 Browse Gita Chapters")
+        st.sidebar.title("📚 Browse Gita Chapters")
         chapters = list(st.session_state.bot.verses_db.keys())
         selected = st.sidebar.selectbox("Chapter", chapters, format_func=lambda c: f"{c}: {st.session_state.bot.verses_db[c]['title']}")
         for vnum, vdata in st.session_state.bot.verses_db[selected]["verses"].items():
@@ -201,7 +160,4 @@ def main():
                 st.markdown(vdata["translation"])
 
     st.markdown("---")
-    st.markdown("🧘‍♂️ This tool combines your emotions and the Gita’s guidance to offer spiritual clarity.")
-
-if __name__ == "__main__":
-    main()
+    st.markdown("🧘‍♂
