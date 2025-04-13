@@ -1,31 +1,20 @@
-import os
-import sys
-import json
-import asyncio
 import streamlit as st
 import pandas as pd
-from typing import Dict
+import os
+import json
+import asyncio
 from PIL import Image
-import cv2
-import torch
+from typing import Dict
+import google.generativeai as genai
 from transformers import pipeline
-import nest_asyncio
-
-# --- Environment Cleanup ---
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-sys.modules["torch.classes"] = None
-nest_asyncio.apply()
 
 # -------------------------
 # GitaGeminiBot Definition
 # -------------------------
 
-import google.generativeai as genai
-
 class GitaGeminiBot:
     def __init__(self, api_key: str):
-        genai.configure(api_key="AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
+        genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         self.verses_db = self.load_gita_database()
 
@@ -101,7 +90,6 @@ class GitaGeminiBot:
 You are a spiritual guide rooted in the teachings of the Bhagavad Gita.
 
 Input:
-
 User Emotion: {emotion}
 User Question: {question}
 
@@ -109,7 +97,6 @@ Instructions:
 Respond with authentic wisdom from the Bhagavad Gita. Do not generate or fabricate verses. Only use real verses from the Bhagavad Gita, including their correct chapter and verse number, original Sanskrit, and accurate English translation. If no relevant verse is available, respond gently and say that.
 
 Respond in the following format:
-
 Chapter X, Verse Y
 Sanskrit: [Only real Sanskrit verse from Bhagavad Gita]
 Translation: [Faithful English translation]
@@ -134,34 +121,22 @@ def initialize_session_state():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     if 'bot' not in st.session_state:
-        st.session_state.bot = GitaGeminiBot("YOUR_GEMINI_API_KEY")
+        st.session_state.bot = GitaGeminiBot(api_key=st.secrets["GEMINI_API_KEY"])
 
 # -------------------------
-# Emotion Detection
+# Emotion Detection via st.camera_input
 # -------------------------
 
 pipe = pipeline("image-classification", model="prithivMLmods/Facial-Emotion-Detection-SigLIP2")
 
-def detect_emotion_from_camera():
-    try:
-        cap = cv2.VideoCapture(0)
-        ret, frame = cap.read()
-        cap.release()
-
-        if not ret:
-            return "neutral"
-
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(rgb_frame)
-
+def detect_emotion_from_streamlit_camera():
+    img_file = st.camera_input("📸 Capture your emotion")
+    if img_file is not None:
+        pil_image = Image.open(img_file)
         results = pipe(pil_image)
-
         if results and isinstance(results, list):
             return results[0]["label"]
-
-        return "neutral"
-    except Exception:
-        return "neutral"
+    return "neutral"
 
 # -------------------------
 # Main App
@@ -173,6 +148,9 @@ def main():
         page_icon="🕉️",
         layout="wide"
     )
+
+    st.title("🕉️ Gita Wisdom with Emotion")
+    st.markdown("We sense your emotion and guide you through the Gita's wisdom.")
 
     image_path = "WhatsApp Image 2024-11-18 at 11.40.34_076eab8e.jpg"
     if os.path.exists(image_path):
@@ -189,19 +167,15 @@ def main():
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.title("🕉️ Gita Wisdom with Emotion")
-        st.markdown("We sense your emotion and guide you through the Gita's wisdom.")
-
         question = st.text_input("Ask your question:")
-        if st.button("📸 Detect Emotion & Ask"):
-            with st.spinner("Detecting your emotion..."):
-                emotion = detect_emotion_from_camera()
-
-            with st.spinner(f"Reflecting based on your {emotion} emotion..."):
-                response = asyncio.run(st.session_state.bot.get_response(emotion, question))
-                st.session_state.messages.append({"role": "user", "content": f"{question} (Feeling: {emotion})"})
-                st.session_state.messages.append({"role": "assistant", **response})
-                st.rerun()
+        if question:
+            emotion = detect_emotion_from_streamlit_camera()
+            if emotion != "neutral":
+                with st.spinner(f"Reflecting based on your {emotion} emotion..."):
+                    response = asyncio.run(st.session_state.bot.get_response(emotion, question))
+                    st.session_state.messages.append({"role": "user", "content": f"{question} (Feeling: {emotion})"})
+                    st.session_state.messages.append({"role": "assistant", **response})
+                    st.rerun()
 
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
