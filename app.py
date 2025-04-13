@@ -17,7 +17,7 @@ logging.getLogger("transformers").setLevel(logging.ERROR)
 
 class GitaGeminiBot:
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
+        genai.configure(api_key="AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
         self.model = genai.GenerativeModel('gemini-1.5-flash')  # More capable
         self.verses_db = self.load_gita_database()
 
@@ -115,7 +115,7 @@ def initialize_state():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     if 'bot' not in st.session_state:
-        st.session_state.bot = GitaGeminiBot(api_key=st.secrets["GEMINI_API_KEY"])
+        st.session_state.bot = GitaGeminiBot(api_key="AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
 
 def main():
     st.set_page_config(page_title="Gita Wisdom Weaver", page_icon="🕉️", layout="wide")
