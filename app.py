@@ -7,6 +7,12 @@ from typing import Dict
 import google.generativeai as genai
 from transformers import pipeline
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import logging
+logging.getLogger("transformers").setLevel(logging.ERROR)
+
+
 # ------------------------- GitaGeminiBot -------------------------
 
 class GitaGeminiBot:
