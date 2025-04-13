@@ -14,7 +14,7 @@ from transformers import pipeline
 
 class GitaGeminiBot:
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
+        genai.configure(api_key="AIzaSyDJNmx7PKmb92aHcrwBK7L5IKHipNzjVck")
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         self.verses_db = self.load_gita_database()
 
