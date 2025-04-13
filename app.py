@@ -160,4 +160,6 @@ def main():
                 st.markdown(vdata["translation"])
 
     st.markdown("---")
-    st.markdown("🧘‍♂
+    st.markdown("""
+🧘‍♂️ Powered by Emotion AI and the timeless wisdom of the Bhagavad Gita.
+""")
